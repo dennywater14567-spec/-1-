@@ -9,28 +9,32 @@
         .message { margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
         #chat-ui { display: none; }
         input { padding: 10px; width: 250px; border-radius: 5px; border: none; }
-        button { padding: 10px 20px; border-radius: 5px; border: none; background: #3b82f6; color: white; cursor: pointer; }
+        button { padding: 10px 20px; border-radius: 5px; border: none; background: #3b82f6; color: white; cursor: pointer; margin-top: 5px;}
     </style>
 </head>
 <body>
     <h1>藍月公會聊天室</h1>
     
-    <!-- 登入按鈕 -->
     <button id="login-btn" onclick="login()">使用 Google 登入</button>
 
-    <!-- 登入後顯示的聊天介面 -->
     <div id="chat-ui">
+        <!-- 暱稱設定區塊 -->
+        <div id="setup-ui" style="margin-bottom: 20px;">
+            <input type="text" id="nickname-input" placeholder="輸入你想取的暱稱...">
+            <button onclick="saveNickname()">設定暱稱</button>
+        </div>
+        
         <div id="chat-box"></div>
         <input type="text" id="msg-input" placeholder="輸入訊息...">
         <button onclick="sendMessage()">發送</button>
+        <button onclick="logout()" style="background: #ef4444;">登出</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
         import { getDatabase, ref, push, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
-        // Firebase 配置資訊
         const firebaseConfig = {
             apiKey: "AIzaSyBU9WulkRjD3cDG9dK-Pjqm5qAL2oWOw8M",
             authDomain: "bluemoonguild.firebaseapp.com",
@@ -47,23 +51,31 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        // 登入功能
         window.login = () => signInWithPopup(auth, provider);
+        window.logout = () => signOut(auth);
 
-        // 監聽登入狀態
+        // 設定暱稱
+        window.saveNickname = async () => {
+            const nickname = document.getElementById("nickname-input").value;
+            if (nickname.trim() === "") return alert("請輸入暱稱！");
+            await updateProfile(auth.currentUser, { displayName: nickname });
+            alert("暱稱已更新為: " + nickname);
+        };
+
         onAuthStateChanged(auth, (user) => {
             const loginBtn = document.getElementById('login-btn');
             const chatUi = document.getElementById('chat-ui');
             if (user) {
                 loginBtn.style.display = 'none';
                 chatUi.style.display = 'block';
+                // 如果已經有設定過名字，填入輸入框
+                if(user.displayName) document.getElementById("nickname-input").value = user.displayName;
             } else {
                 loginBtn.style.display = 'block';
                 chatUi.style.display = 'none';
             }
         });
 
-        // 顯示訊息
         onValue(ref(db, 'messages'), (snapshot) => {
             const chatBox = document.getElementById("chat-box");
             chatBox.innerHTML = "";
@@ -76,7 +88,6 @@
             }
         });
 
-        // 發送訊息
         window.sendMessage = () => {
             const input = document.getElementById("msg-input");
             const user = auth.currentUser;
@@ -84,7 +95,7 @@
             
             push(ref(db, 'messages'), {
                 content: input.value,
-                username: user.displayName,
+                username: user.displayName || "匿名",
                 timestamp: serverTimestamp()
             });
             input.value = "";
